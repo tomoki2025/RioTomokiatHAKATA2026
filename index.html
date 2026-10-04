@@ -7,9 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="旅のしおり">
+<meta name="apple-mobile-web-app-title" content="2026博多RioTomo">
 <meta name="format-detection" content="telephone=no">
-<title>旅のしおり</title>
+<title>2026博多RioTomo</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -214,7 +214,7 @@ details summary{min-height:40px;display:flex;align-items:center;font-weight:600;
    ・PWA（sw.js / manifest.webmanifest）
    ===================================================================== */
 const CFG = window.APP_CONFIG || {};
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 /* ---------------- 小物ユーティリティ ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -1011,7 +1011,7 @@ function exportICS(onlyFixed) {
 function renderHome() {
   const trips = LS.get('tabi.trips', []);
   $('#app').innerHTML = `
-    <header class="topbar"><div class="tb-title"><div class="name">🧳 旅のしおり</div><div class="sub">${esc(S.me)} さん</div></div>
+    <header class="topbar"><div class="tb-title"><div class="name">🧳 2026博多RioTomo</div><div class="sub">${esc(S.me)} さん</div></div>
       <button class="icon-btn" data-act="rename">名前変更</button></header>
     ${S.mode === 'local' ? `<div class="modebar">ローカルモード（同期なし）。共有するには config.js にSupabaseを設定してください。</div>` : ''}
     <div class="home">
@@ -1027,7 +1027,7 @@ function renderHome() {
     </div>`;
 }
 function renderNotFound(msg) {
-  $('#app').innerHTML = `<header class="topbar"><button class="icon-btn" data-act="home">‹</button><div class="tb-title"><div class="name">旅のしおり</div></div></header>
+  $('#app').innerHTML = `<header class="topbar"><button class="icon-btn" data-act="home">‹</button><div class="tb-title"><div class="name">2026博多RioTomo</div></div></header>
     <div class="home"><div class="card"><p>${esc(msg)}</p><button class="btn block" data-act="home">旅行一覧へ</button></div></div>`;
 }
 async function createTrip(trip, spots = [], wishes = []) {
@@ -1251,7 +1251,7 @@ function openTravelSheet(spot) {
 /* ---------------- 共有・設定 ---------------- */
 const shareUrl = () => `${location.origin}${location.pathname}?t=${S.tripId}`;
 function openShare() {
-  const url = shareUrl(); const text = `「${S.trip.name}」の旅のしおり。開いて名前を入れるだけで参加できます👇`;
+  const url = shareUrl(); const text = `2026博多RioTomo：「${S.trip.name}」の予定表。開いて名前を入れるだけで参加できます👇`;
   openSheet(`<h3>共有</h3><p class="muted small">このURLを知っている人は誰でも見て・追加できます（ログインなし）。</p>
     <input readonly value="${esc(url)}" id="share-url">
     <div class="stack" style="margin-top:10px">
@@ -1326,7 +1326,7 @@ const actions = {
   },
   share: () => openShare(),
   'copy-share': async () => { if (await copyText(shareUrl())) toast('コピーしました', 'ok'); },
-  'native-share': async () => { try { await navigator.share({ title: S.trip.name, text: `「${S.trip.name}」の旅のしおり`, url: shareUrl() }); } catch { /* キャンセル */ } },
+  'native-share': async () => { try { await navigator.share({ title: S.trip.name, text: `2026博多RioTomo：「${S.trip.name}」の予定表`, url: shareUrl() }); } catch { /* キャンセル */ } },
   settings: () => openSettings(),
   'set-organizer': async () => { const v = $('#org-in')?.value.trim(); if (!v || !isOrganizer()) return; await dbUpdate('trips', S.tripId, { organizer: v }); closeSheet(); toast(`幹事を「${v}」にしました`); },
   'claim-organizer': async () => { await dbUpdate('trips', S.tripId, { organizer: S.me }); closeSheet(); toast('あなたが幹事になりました'); },

@@ -1,6 +1,6 @@
 {
-  "name": "旅のしおり（共有スケジュール）",
-  "short_name": "旅のしおり",
+  "name": "2026博多RioTomo",
+  "short_name": "2026博多RioTomo",
   "description": "同行者とリアルタイムに共有できる旅行スケジュール",
   "display": "standalone",
   "orientation": "portrait",
