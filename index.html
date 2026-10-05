@@ -214,7 +214,7 @@ details summary{min-height:40px;display:flex;align-items:center;font-weight:600;
    ・PWA（sw.js / manifest.webmanifest）
    ===================================================================== */
 const CFG = window.APP_CONFIG || {};
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 /* ---------------- 小物ユーティリティ ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -479,7 +479,11 @@ function getContext() {
 /* ---------------- 書き込み（楽観的更新→ストアへ） ---------------- */
 function applyEvent({ table, type, row }) {
   if (!row) return;
-  if (table === 'trips') { if (row.id === S.tripId && type !== 'DELETE') S.trip = { ...S.trip, ...row }; }
+  if (table === 'trips') {
+    if (row.id !== S.tripId) return;
+    if (type === 'DELETE') { forgetTrip(S.tripId); S.trip = null; closeSheet(); renderNotFound('この旅行は削除されました'); return; }
+    S.trip = { ...S.trip, ...row };
+  }
   else {
     const key = { spots: 'spots', wishlist: 'wishes', proposals: 'proposals' }[table]; if (!key) return;
     const arr = S[key]; const i = arr.findIndex((x) => x.id === row.id);
@@ -525,6 +529,10 @@ function saveCache() {
   if (!S.tripId || !S.trip) return;
   LS.set('tabi.cache.' + S.tripId, { trip: S.trip, spots: S.spots, wishes: S.wishes, proposals: S.proposals, at: Date.now() });
 }
+function forgetTrip(id) {   // この端末の「最近の旅行」と保存データから外す
+  LS.set('tabi.trips', LS.get('tabi.trips', []).filter((t) => t.id !== id));
+  for (const k of ['cache', 'moving', 'snooze', 'notified']) { try { localStorage.removeItem(`tabi.${k}.${id}`); } catch { /* noop */ } }
+}
 function rememberTrip() {
   const list = LS.get('tabi.trips', []).filter((t) => t.id !== S.tripId);
   list.unshift({ id: S.tripId, name: S.trip.name, start_date: S.trip.start_date, end_date: S.trip.end_date });
@@ -563,7 +571,7 @@ async function reload() {
   if (!S.store || !S.tripId) return;
   try {
     const d = await S.store.loadAll(S.tripId);
-    if (!d.trip) { renderNotFound('この旅行が見つかりません（URLを確認してください）'); return; }
+    if (!d.trip) { forgetTrip(S.tripId); S.trip = null; renderNotFound('この旅行が見つかりません（削除されたか、URLが違います）'); return; }
     S.trip = d.trip; S.spots = d.spots.map(normSpot); S.wishes = d.wishlist.map(normWish); S.proposals = d.proposals.map(normProposal);
     S.loaded = true; if (!S.tab) S.tab = defaultTab();
     rememberTrip(); saveCache(); render();
@@ -1016,7 +1024,8 @@ function renderHome() {
     ${S.mode === 'local' ? `<div class="modebar">ローカルモード（同期なし）。共有するには config.js にSupabaseを設定してください。</div>` : ''}
     <div class="home">
       ${trips.length ? `<section class="card"><h2>最近の旅行</h2>${trips.map((t) => `<div class="trip-row"><div><b>${esc(t.name)}</b><div class="small muted">${fmtDate(t.start_date)}〜${fmtDate(t.end_date)}</div></div>
-        <a class="btn sm primary" href="?t=${encodeURIComponent(t.id)}">開く</a></div>`).join('')}</section>` : ''}
+        <div class="row"><button class="btn sm" data-act="forget-trip" data-id="${esc(t.id)}">外す</button><a class="btn sm primary" href="?t=${encodeURIComponent(t.id)}">開く</a></div></div>`).join('')}
+        <p class="hint">「外す」はこの端末の一覧から消すだけです（データは消えません）。旅行そのものの削除は、旅行を開いて ⚙︎設定 から（幹事のみ）。</p></section>` : ''}
       <section class="card"><h2>新しく作る</h2>
         <button class="btn primary block" data-act="create-seed">博多 2泊3日（10/10〜10/12）を初期データ入りで作成</button>
         <button class="btn block" style="margin-top:8px" data-act="create-empty">空の旅行を作成</button>
@@ -1279,6 +1288,9 @@ function openSettings() {
       <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-act="ics-fixed">📅 固定の予定をカレンダーへ</button><button class="btn sm" data-act="ics-all">📅 全部</button></div></div>
     <div class="card" style="box-shadow:none"><div class="small muted">接続</div><p class="small" style="margin:4px 0">${S.mode === 'local' ? 'ローカルモード（同期なし）' : `Supabase（${{ online: '同期中 ✓', connecting: '接続中…', reconnecting: '再接続中…', offline: 'オフライン' }[S.conn] || S.conn}）`}</p>
       <button class="btn sm" data-act="reload">再読み込み</button> <button class="btn sm" data-act="export">データを書き出す</button></div>
+    ${isOrganizer() ? `<div class="card" style="box-shadow:none"><div class="small muted">旅行の削除（幹事のみ）</div>
+      <p class="small" style="margin:4px 0 8px">予定・行きたい場所・提案もすべて消え、全員の画面からなくなります。元に戻せません。</p>
+      <button class="btn sm danger" data-act="delete-trip">この旅行を削除</button></div>` : ''}
     <p class="hint">旅行ID：${esc(S.tripId)}・v${APP_VERSION}</p>
     <div class="sheet-actions"><button class="btn grow" data-act="close-sheet">閉じる</button></div>`);
 }
@@ -1348,6 +1360,13 @@ const actions = {
   'reject-proposal': (el) => rejectProposal(el.dataset.id),
   'ics-fixed': () => exportICS(true),
   'ics-all': () => exportICS(false),
+  'delete-trip': async (el) => {
+    if (!isOrganizer()) return toast('削除できるのは幹事だけです', 'error');
+    if (el.dataset.sure !== '1') { el.dataset.sure = '1'; el.textContent = `本当に「${S.trip.name}」を削除する`; return; }
+    try { await S.store.remove('trips', S.tripId); } catch (e) { return toast('削除できませんでした：' + (e?.message || e), 'error'); }
+    forgetTrip(S.tripId); location.href = location.pathname;
+  },
+  'forget-trip': (el) => { forgetTrip(el.dataset.id); renderHome(); toast('一覧から外しました'); },
   'create-seed': () => createTrip(SEED.trip, SEED.spots, SEED.wishlist),
   'create-empty': () => {
     const t = nowJST().date;
